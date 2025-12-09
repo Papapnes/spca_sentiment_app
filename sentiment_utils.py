@@ -142,34 +142,7 @@ def niveau_urgence(row):
 
 
 # ======================
-# 7) Réponse courtoise automatique
-# ======================
-def generer_reponse(sentiment, theme):
-
-    if sentiment == "positif":
-        return "Merci beaucoup pour votre message et votre soutien envers les animaux. Toute notre équipe apprécie votre bienveillance."
-
-    if sentiment == "neutre":
-        return "Merci pour votre commentaire. Nous avons bien pris note de votre retour."
-
-    if theme == "Maltraitance / Urgence animale":
-        return ("Merci de nous avoir signalé cette situation. "
-                "Votre message a été transmis en priorité à notre équipe du bien-être animal. "
-                "Si un animal est en danger immédiat, contactez également les autorités compétentes.")
-
-    if theme == "Dons / Paiement":
-        return ("Merci pour votre message. Nous sommes désolés pour la situation liée à votre don. "
-                "Notre équipe vous recontactera pour résoudre cela.")
-
-    if theme == "Service / Communication":
-        return ("Merci pour votre retour. Nous sommes désolés si votre expérience n’a pas été satisfaisante. "
-                "Nous allons améliorer nos communications.")
-
-    return ("Merci pour votre commentaire. Nous allons faire le suivi nécessaire.")
-
-
-# ======================
-# 8) Pipeline principal
+# 7) Pipeline principal
 # ======================
 def pipeline_analyse(df, col_commentaire="Commentaire"):
 
@@ -199,3 +172,4 @@ def pipeline_analyse(df, col_commentaire="Commentaire"):
     )
 
     return df
+
