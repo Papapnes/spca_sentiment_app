@@ -1,19 +1,30 @@
 # sentiment_utils.py
 import re
 import pandas as pd
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from deep_translator import GoogleTranslator
 
-# Charger le modèle de sentiment multilingue
-MODEL_NAME = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+# Petit modèle anglais compatible Streamlit Cloud
+MODEL_NAME = "distilbert-base-uncased-finetuned-sst-2-english"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
-id2label = {0: "negatif", 1: "neutre", 2: "positif"}
+id2label = {0: "negatif", 1: "positif"}  # binaire
 
 
-# =========================
+# ================
+# Traduction FR → EN
+# ================
+def traduire_en(text):
+    try:
+        return GoogleTranslator(source='auto', target='en').translate(text)
+    except:
+        return text  # si erreur → on garde original
+
+
+# ======================
 # 1) Nettoyage du texte
-# =========================
+# ======================
 def nettoyer_texte(t):
     t = str(t).strip()
     t = t.replace("\n", " ")
@@ -21,28 +32,33 @@ def nettoyer_texte(t):
     return t
 
 
-# =========================
+# ======================
 # 2) Analyse du sentiment
-# =========================
+# ======================
 def analyser_sentiment(text):
-    if not isinstance(text, str) or text.strip() == "":
-        return "neutre", 0.0, 1.0, 0.0
 
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
+    # Traduction automatique FR → EN
+    text_en = traduire_en(text)
 
+    inputs = tokenizer(text_en, return_tensors="pt", truncation=True, max_length=256)
     with torch.no_grad():
         logits = model(**inputs).logits
 
     probs = logits.softmax(dim=1).numpy()[0]
-    label = id2label[int(probs.argmax())]
 
-    return label, float(probs[0]), float(probs[1]), float(probs[2])
+    # Label du modèle
+    label_en = "positif" if probs[1] > probs[0] else "negatif"
+
+    # Ajouter neutre si scores proches
+    if abs(probs[1] - probs[0]) < 0.15:
+        label_en = "neutre"
+
+    return label_en, float(probs[0]), float(probs[1])
 
 
-# =========================
-# 3) Détection du thème
-# =========================
-
+# LE RESTE DE TON CODE RESTE IDENTIQUE
+# (détection de thème et niveau d'urgence)
+# ============================================================
 THEMES = {
     "Dons / Paiement": [
         "don", "donation", "reçu", "recu", "reçu d'impôt", "taxe",
@@ -70,10 +86,6 @@ def detect_theme(txt):
     return "Autre / À vérifier"
 
 
-# =========================
-# 4) Niveau d'urgence
-# =========================
-
 MOTS_URGENCE_CRITIQUE = [
     "maltraitance", "torture", "torturé", "en danger",
     "blessé", "agonie", "urgence", "cruel", "violence"
@@ -84,43 +96,30 @@ def niveau_urgence(row):
     sent = row["sentiment"]
     theme = row["theme"]
 
-    # Cas toujours URGENT
     if any(m in txt for m in MOTS_URGENCE_CRITIQUE) or theme == "Maltraitance / Urgence animale":
         return "URGENT"
 
-    # Donateur très fâché
     if sent == "negatif" and row["score_negatif"] >= 0.60:
         return "PRIORITÉ MOYENNE"
 
-    # Autres commentaires négatifs
     if sent == "negatif":
         return "À TRAITER"
 
     return "NORMAL"
 
 
-# =========================
-# 5) Pipeline complet
-# =========================
 def pipeline_analyse(df, col_commentaire="Commentaire"):
     df = df.copy()
     df[col_commentaire] = df[col_commentaire].fillna("")
 
-    # Nettoyage
     df["commentaire_clean"] = df[col_commentaire].apply(nettoyer_texte)
 
-    # Sentiment
     sentiments = df["commentaire_clean"].apply(analyser_sentiment)
     df["sentiment"] = sentiments.apply(lambda x: x[0])
     df["score_negatif"] = sentiments.apply(lambda x: x[1])
-    df["score_neutre"] = sentiments.apply(lambda x: x[2])
-    df["score_positif"] = sentiments.apply(lambda x: x[3])
+    df["score_positif"] = sentiments.apply(lambda x: x[2])
 
-    # Thème
     df["theme"] = df["commentaire_clean"].apply(detect_theme)
-
-    # Urgence
     df["niveau_urgence"] = df.apply(niveau_urgence, axis=1)
 
     return df
-
