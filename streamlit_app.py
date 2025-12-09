@@ -73,8 +73,8 @@ if uploaded_file is not None:
         st.dataframe(
             df_filtered[[
                 col_comment, "sentiment",
-                "theme", "niveau_urgence",
-                "reponse_proposee"
+                "theme", "niveau_urgence"
+        
             ]],
             use_container_width=True
         )
@@ -90,5 +90,6 @@ if uploaded_file is not None:
 
 else:
     st.info("En attente d’un fichier...")
+
 
 
