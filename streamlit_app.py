@@ -9,15 +9,15 @@ st.set_page_config(
 )
 
 st.markdown(
-    "<h2 style='color:#ae0f27;'>🐾 SPCA – Analyse automatisée des commentaires</h2>",
+    "<h2 style='color:#ae0f27;'>🐾 SPCA – Analyse des commentaires prioritaires</h2>",
     unsafe_allow_html=True
 )
 
 st.write("Téléverse un fichier CSV contenant les commentaires. L'application analyse :")
-st.write("- le sentiment (positif / neutre / négatif)")
-st.write("- le thème (dons, adoption, maltraitance, etc.)")
-st.write("- le niveau d'urgence")
-
+st.write("- les sentiments négatifs et urgents")
+st.write("- les thèmes associés (maltraitance, dons, adoption, etc.)")
+st.write("- les niveaux d'urgence (URGENT, À TRAITER, NORMAL)")
+st.write("- tri automatique du plus urgent au moins urgent")
 
 uploaded_file = st.file_uploader("📂 Importer un fichier CSV", type=["csv"])
 
@@ -38,21 +38,18 @@ if uploaded_file is not None:
 
         # Statistiques
         st.subheader("📊 Résumé")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Commentaires", len(df_result))
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total commentaires", len(df_result))
         col2.metric("Urgents", (df_result["niveau_urgence"] == "URGENT").sum())
         col3.metric("Négatifs", (df_result["sentiment"] == "negatif").sum())
-        col4.metric("Positifs", (df_result["sentiment"] == "positif").sum())
 
-        # Filtres sécurisés
+        # Filtres
         st.subheader("🎯 Filtres")
         urgences_options = df_result["niveau_urgence"].unique().tolist()
-        default_urgences = [u for u in ["URGENT", "PRIORITÉ MOYENNE"] if u in urgences_options]
-
         urgences = st.multiselect(
-            "Filtrer par niveau d'urgence",
+            "Filtrer par urgence",
             options=urgences_options,
-            default=default_urgences
+            default=urgences_options
         )
 
         themes_options = df_result["theme"].unique().tolist()
@@ -62,34 +59,36 @@ if uploaded_file is not None:
             default=themes_options
         )
 
+        # Application des filtres
         df_filtered = df_result.copy()
         if urgences:
             df_filtered = df_filtered[df_filtered["niveau_urgence"].isin(urgences)]
         if themes:
             df_filtered = df_filtered[df_filtered["theme"].isin(themes)]
 
-        # Tableau résultats
-        st.subheader("📄 Commentaires analysés")
+        # Affichage final trié automatiquement
+        st.subheader("📄 Commentaires priorisés")
+
         st.dataframe(
             df_filtered[[
-                col_comment, "sentiment",
-                "theme", "niveau_urgence"
-        
+                col_comment,
+                "sentiment",
+                "score",
+                "theme",
+                "niveau_urgence",
+                "priorite_urgence"
             ]],
             use_container_width=True
         )
 
-        # Export CSV complet
+        # Export CSV
         csv = df_result.to_csv(index=False).encode("utf-8-sig")
         st.download_button(
             "💾 Télécharger tous les résultats (CSV)",
             data=csv,
-            file_name="commentaires_spca_analyses.csv",
+            file_name="commentaires_priorises_spca.csv",
             mime="text/csv"
         )
 
 else:
-    st.info("En attente d’un fichier...")
-
-
-
+    st.info("En attente d’un fichier…")
