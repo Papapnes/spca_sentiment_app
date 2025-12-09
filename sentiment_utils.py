@@ -18,8 +18,11 @@ model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 # ======================
 def detect_language(text):
     try:
-        result = GoogleTranslator(source='auto', target='en').translate(text)
-        return "fr" if result != text else "en"
+        translated = GoogleTranslator(source='auto', target='en').translate(text)
+        if translated != text:
+            return "fr"
+        else:
+            return "en"
     except:
         return "unknown"
 
@@ -51,13 +54,12 @@ def analyser_sentiment(text):
 
     lang = detect_language(text)
 
-    # Si français → traduction
+    # Traduction automatique si FR
     if lang == "fr":
         text_en = translate_to_en(text)
     else:
         text_en = text
 
-    # Analyse sur modèle anglais
     inputs = tokenizer(text_en, return_tensors="pt", truncation=True, max_length=256)
     with torch.no_grad():
         logits = model(**inputs).logits
@@ -65,7 +67,7 @@ def analyser_sentiment(text):
     probs = logits.softmax(dim=1).numpy()[0]
     neg, pos = probs
 
-    # Classification
+    # Détermination sentiment
     if abs(pos - neg) < 0.10:
         label = "neutre"
     elif pos > neg:
@@ -79,12 +81,10 @@ def analyser_sentiment(text):
 # ======================
 # 5) Thèmes SPCA avancés
 # ======================
-
 THEMES = {
     "Maltraitance / Urgence animale": [
         "maltraitance", "cruel", "violent", "torture", "torturé",
-        "en danger", "blessé", "agonie", "animal errant",
-        "négligé", "attaché", "mal nourri"
+        "en danger", "blessé", "errant", "négligé", "attaché"
     ],
     "Dons / Paiement": [
         "don", "donateur", "donation", "paiement", "carte",
@@ -95,11 +95,11 @@ THEMES = {
         "famille d'accueil", "refuge"
     ],
     "Euthanasie / Décision médicale": [
-        "euthanasie", "endormir", "choix difficile", "vétérinaire"
+        "euthanasie", "vétérinaire", "endormir", "choix difficile"
     ],
     "Service / Communication": [
         "service", "réponse", "communication", "courriel",
-        "téléphone", "attente", "expérience"
+        "téléphone", "attente", "expérience", "contact"
     ]
 }
 
@@ -112,12 +112,11 @@ def detect_theme(text):
 
 
 # ======================
-# 6) Niveau d'urgence amélioré
+# 6) Niveau d'urgence
 # ======================
-
 MOTS_CRITIQUES = [
-    "maltraitance", "torture", "violence", "agonie",
-    "en danger", "torturé", "blessé"
+    "maltraitance", "torture", "violence",
+    "en danger", "agonie", "torturé", "blessé"
 ]
 
 def niveau_urgence(row):
@@ -126,14 +125,13 @@ def niveau_urgence(row):
     sent = row["sentiment"]
     theme = row["theme"]
 
-    # Critique = URGENT
+    # Cas critique immédiat
     if any(w in txt for w in MOTS_CRITIQUES):
         return "URGENT"
 
     if theme == "Maltraitance / Urgence animale":
         return "URGENT"
 
-    # Négatif fort → priorité
     if sent == "negatif" and row["score_negatif"] > 0.60:
         return "PRIORITÉ MOYENNE"
 
@@ -144,7 +142,7 @@ def niveau_urgence(row):
 
 
 # ======================
-# 7) Génération d'une réponse courtoise automatisée
+# 7) Réponse courtoise automatique
 # ======================
 def generer_reponse(sentiment, theme):
 
@@ -152,44 +150,49 @@ def generer_reponse(sentiment, theme):
         return "Merci beaucoup pour votre message et votre soutien envers les animaux. Toute notre équipe apprécie votre bienveillance."
 
     if sentiment == "neutre":
-        return "Merci pour votre commentaire. Nous avons bien pris note de votre retour et restons disponibles pour toute question."
+        return "Merci pour votre commentaire. Nous avons bien pris note de votre retour."
 
-    # Cas négatifs
     if theme == "Maltraitance / Urgence animale":
         return ("Merci de nous avoir signalé cette situation. "
-                "Votre message a été transmis en priorité à notre équipe responsable du bien-être animal. "
+                "Votre message a été transmis en priorité à notre équipe du bien-être animal. "
                 "Si un animal est en danger immédiat, contactez également les autorités compétentes.")
 
     if theme == "Dons / Paiement":
-        return ("Merci pour votre message. Nous sommes désolés pour la situation concernant votre don. "
-                "Notre équipe du service aux donateurs vous contactera rapidement pour résoudre le problème.")
+        return ("Merci pour votre message. Nous sommes désolés pour la situation liée à votre don. "
+                "Notre équipe vous recontactera pour résoudre cela.")
 
     if theme == "Service / Communication":
-        return ("Merci de votre message. Nous sommes désolés si votre expérience n’a pas été satisfaisante. "
-                "Nous nous engageons à améliorer nos communications.")
+        return ("Merci pour votre retour. Nous sommes désolés si votre expérience n’a pas été satisfaisante. "
+                "Nous allons améliorer nos communications.")
 
-    return ("Merci pour votre commentaire. Nous sommes désolés pour la situation et allons faire le suivi nécessaire.")
+    return ("Merci pour votre commentaire. Nous allons faire le suivi nécessaire.")
 
 
 # ======================
-# 8) Pipeline complet
+# 8) Pipeline principal
 # ======================
 def pipeline_analyse(df, col_commentaire="Commentaire"):
 
     df = df.copy()
     df[col_commentaire] = df[col_commentaire].fillna("")
 
+    # Nettoyage
     df["commentaire_clean"] = df[col_commentaire].apply(nettoyer_texte)
 
+    # Sentiment + langue
     sentiments = df["commentaire_clean"].apply(analyser_sentiment)
     df["sentiment"] = sentiments.apply(lambda x: x[0])
     df["score_negatif"] = sentiments.apply(lambda x: x[1])
     df["score_positif"] = sentiments.apply(lambda x: x[2])
     df["langue"] = sentiments.apply(lambda x: x[3])
 
+    # Thème
     df["theme"] = df["commentaire_clean"].apply(detect_theme)
+
+    # Urgence
     df["niveau_urgence"] = df.apply(niveau_urgence, axis=1)
 
+    # Réponse courtoise
     df["reponse_proposee"] = df.apply(
         lambda r: generer_reponse(r["sentiment"], r["theme"]),
         axis=1
