@@ -123,3 +123,4 @@ def pipeline_analyse(df, col_commentaire="Commentaire"):
     df["niveau_urgence"] = df.apply(niveau_urgence, axis=1)
 
     return df
+
