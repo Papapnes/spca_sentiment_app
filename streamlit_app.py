@@ -17,7 +17,7 @@ st.write("Téléverse un fichier CSV contenant les commentaires. L'application a
 st.write("- le sentiment (positif / neutre / négatif)")
 st.write("- le thème (dons, adoption, maltraitance, etc.)")
 st.write("- le niveau d'urgence")
-st.write("- une réponse courtoise automatique")
+
 
 uploaded_file = st.file_uploader("📂 Importer un fichier CSV", type=["csv"])
 
@@ -90,4 +90,5 @@ if uploaded_file is not None:
 
 else:
     st.info("En attente d’un fichier...")
+
 
