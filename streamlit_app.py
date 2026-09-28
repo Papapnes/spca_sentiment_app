@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 st.markdown(
-    "<h2 style='color:#ae0f27;'>Analyse des commentaires prioritaires</h2>",
+    "<h2 style='color:#ae0f27;'> 💬 Analyse des commentaires 💬 </h2>",
     unsafe_allow_html=True
 )
 
