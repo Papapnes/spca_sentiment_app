@@ -4,12 +4,12 @@ import pandas as pd
 from sentiment_utils import pipeline_analyse
 
 st.set_page_config(
-    page_title="SPCA - Analyse des commentaires",
+    page_title="Analyse des commentaires",
     layout="wide"
 )
 
 st.markdown(
-    "<h2 style='color:#ae0f27;'>🐾 SPCA – Analyse des commentaires prioritaires</h2>",
+    "<h2 style='color:#ae0f27;'>Analyse des commentaires prioritaires</h2>",
     unsafe_allow_html=True
 )
 
